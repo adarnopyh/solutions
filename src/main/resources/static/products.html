@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Products</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container py-4">
+    <h3 class="mb-3">Solutions — Products</h3>
+
+    <!-- Auth card: Login / Sign Up -->
+    <div id="authCard" class="card mb-4">
+        <div class="card-body">
+            <ul class="nav nav-tabs" id="authTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#loginPane" type="button" role="tab">Login</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signupPane" type="button" role="tab">Sign up</button>
+                </li>
+            </ul>
+            <div class="tab-content pt-3">
+                <!-- Login -->
+                <div class="tab-pane fade show active" id="loginPane" role="tabpanel">
+                    <div class="row g-2">
+                        <div class="col-md-4"><input id="loginUsername" class="form-control" placeholder="Username"></div>
+                        <div class="col-md-4"><input id="loginPassword" type="password" class="form-control" placeholder="Password"></div>
+                        <div class="col-md-4"><button id="btnLogin" class="btn btn-primary w-100">Login</button></div>
+                    </div>
+                    <div id="loginMsg" class="mt-2 small" style="display:none;"></div>
+                </div>
+                <!-- Sign up -->
+                <div class="tab-pane fade" id="signupPane" role="tabpanel">
+                    <div class="row g-2">
+                        <div class="col-md-4"><input id="regUsername" class="form-control" placeholder="Choose username"></div>
+                        <div class="col-md-4"><input id="regPassword" type="password" class="form-control" placeholder="Choose password (min 6)"></div>
+                        <div class="col-md-4"><button id="btnRegister" class="btn btn-success w-100">Create account</button></div>
+                    </div>
+                    <div id="regMsg" class="mt-2 small" style="display:none;"></div>
+                    <div class="form-text mt-1">New accounts get <code>ROLE_USER</code> by default.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User info + Logout -->
+    <div id="userInfo" class="alert alert-secondary d-none d-flex justify-content-between align-items-center">
+        <span id="userText"></span>
+        <button id="btnLogout" class="btn btn-outline-danger btn-sm">Logout</button>
+    </div>
+
+    <!-- Admin: Create product -->
+    <div id="adminCreate" class="card mb-4 d-none">
+        <div class="card-body">
+            <h5 class="card-title">Create Product (ADMIN)</h5>
+            <div class="row g-2">
+                <div class="col-md-4"><input id="pTitle" class="form-control" placeholder="Title"></div>
+                <div class="col-md-3"><input id="pQty" type="number" min="0" class="form-control" placeholder="Quantity"></div>
+                <div class="col-md-3"><input id="pPrice" type="number" min="0" step="0.01" class="form-control" placeholder="Price"></div>
+                <div class="col-md-2"><button id="btnCreate" class="btn btn-success w-100">Create</button></div>
+            </div>
+            <div id="createMsg" class="mt-2 small"></div>
+        </div>
+    </div>
+
+    <!-- Products table -->
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Product List</h5>
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead><tr><th>Item name</th><th>Quantity</th><th>Price</th><th>Total price with VAT</th></tr></thead>
+                    <tbody id="rows"></tbody>
+                </table>
+            </div>
+            <div id="loadMsg" class="mt-2 small"></div>
+        </div>
+    </div>
+
+    <!-- Admin: Audit history -->
+    <div id="adminAudit" class="card mt-4 d-none">
+        <div class="card-body">
+            <h5 class="card-title">Audit History</h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                    <thead><tr><th>When</th><th>Action</th><th>Product ID</th><th>User</th></tr></thead>
+                    <tbody id="auditRows"></tbody>
+                </table>
+            </div>
+            <div id="auditMsg" class="mt-2 small text-secondary"></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/auth-bridge.js"></script>
+<script>
+    (() => {
+        let authHeader = AuthBridge.token ? 'Basic ' + AuthBridge.token : null;
+        let roles = [];
+
+        const byId = (id) => document.getElementById(id);
+        const show = (id, on = true) => { const el = byId(id); if (el) el.classList.toggle('d-none', !on); };
+        const setMsg = (id, text, kind='danger') => {
+            const el = byId(id);
+            if (!el) return;
+            el.textContent = text || '';
+            el.style.display = text ? 'block' : 'none';
+            el.className = `mt-2 small text-${kind}`;
+        };
+        const rows = byId('rows');
+
+        async function call(path, init = {}) {
+            const cfg = { ...init, headers: { ...(init.headers || {}) } };
+            if (authHeader) cfg.headers['Authorization'] = authHeader;
+            cfg.headers['Content-Type'] = cfg.headers['Content-Type'] || 'application/json';
+            const res = await fetch(path, cfg);
+            const text = await res.text();
+            if (!res.ok) throw { status: res.status, body: text };
+            const ct = res.headers.get('content-type') || '';
+            return ct.includes('application/json') ? JSON.parse(text) : text;
+        }
+
+        async function loadAudit() {
+            const auditRows = byId('auditRows');
+            auditRows.innerHTML = '';
+            const msg = byId('auditMsg');
+            msg.textContent = 'Loading…';
+            try {
+                const data = await call('/api/audit/products');
+                const items = data.content || data;
+                for (const a of items.slice(0, 10)) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+          <td>${new Date(a.performedAt).toLocaleString()}</td>
+          <td>${a.action}</td>
+          <td>${a.productId}</td>
+          <td>${a.performedBy}</td>`;
+                    auditRows.appendChild(tr);
+                }
+                msg.textContent = items.length ? '' : 'No audit entries.';
+            } catch (e) {
+                msg.textContent = e.status === 403 ? 'Not authorized (ADMIN only).' : 'Failed to load audit.';
+            }
+        }
+
+        async function login() {
+            setMsg('loginMsg', '');
+            const u = byId('loginUsername').value.trim();
+            const p = byId('loginPassword').value;
+            if (!u || !p) return setMsg('loginMsg', 'Enter username and password');
+            authHeader = 'Basic ' + btoa(u + ':' + p);
+            try {
+                const me = await call('/api/me');
+                roles = me.roles || [];
+                sessionStorage.setItem('basic', btoa(u + ':' + p));
+                show('authCard', false);
+                byId('userText').textContent = `Logged in as ${me.username} [${roles.join(', ')}]`;
+                show('userInfo', true);
+                show('adminCreate', roles.includes('ROLE_ADMIN'));
+                show('adminAudit', roles.includes('ROLE_ADMIN'));
+                await loadProducts();
+                if (roles.includes('ROLE_ADMIN')) await loadAudit();
+            } catch (e) {
+                authHeader = null; roles = [];
+                setMsg('loginMsg', e.status === 401 ? 'Invalid credentials' : `Login failed (${e.status})`);
+            }
+        }
+
+        async function registerUser() {
+            setMsg('regMsg', '');
+            const u = byId('regUsername').value.trim();
+            const p = byId('regPassword').value;
+            if (!u || !p) return setMsg('regMsg', 'Username and password are required');
+            if (p.length < 6) return setMsg('regMsg', 'Password must be at least 6 characters');
+            try {
+                await call('/api/register', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
+                setMsg('regMsg', 'Account created. Logging in…', 'success');
+                byId('loginUsername').value = u;
+                byId('loginPassword').value = p;
+                const loginTab = document.querySelector('#login-tab');
+                if (loginTab) new bootstrap.Tab(loginTab).show();
+                await login();
+                byId('regUsername').value = ''; byId('regPassword').value = '';
+            } catch (e) {
+                let msg = `Registration failed (${e.status})`;
+                try { const parsed = JSON.parse(e.body); if (parsed?.message) msg = parsed.message; } catch {}
+                setMsg('regMsg', msg);
+            }
+        }
+
+        async function logout() {
+            authHeader = null; roles = [];
+            sessionStorage.removeItem('basic');
+            rows.innerHTML = '';
+            show('userInfo', false);
+            show('adminCreate', false);
+            show('adminAudit', false);
+            show('authCard', true);
+        }
+
+        async function loadProducts() {
+            rows.innerHTML = '';
+            setMsg('loadMsg', 'Loading…', 'secondary');
+            try {
+                const data = await call('/api/products');
+                for (const p of data) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${p.title}</td><td>${p.quantity}</td><td>${p.price}</td><td>${p.totalWithVat}</td>`;
+                    rows.appendChild(tr);
+                }
+                setMsg('loadMsg', '');
+            } catch (e) {
+                setMsg('loadMsg', e.status === 403 ? 'Read-only (insufficient permissions).' : `Failed to load (${e.status})`);
+            }
+        }
+
+        async function createProduct() {
+            setMsg('createMsg', '');
+            const body = {
+                title: byId('pTitle').value.trim(),
+                quantity: parseInt(byId('pQty').value || '0', 10),
+                price: parseFloat(byId('pPrice').value || '0')
+            };
+            if (!body.title) return setMsg('createMsg', 'Title is required');
+            try {
+                await call('/api/products', { method: 'POST', body: JSON.stringify(body) });
+                setMsg('createMsg', 'Created.', 'success');
+                await loadProducts();
+                byId('pTitle').value = ''; byId('pQty').value = ''; byId('pPrice').value = '';
+                if (roles.includes('ROLE_ADMIN')) await loadAudit();
+            } catch (e) {
+                setMsg('createMsg', e.status === 403 ? 'Forbidden (ADMIN only).' : `Create failed (${e.status})`);
+            }
+        }
+
+        byId('btnLogin')?.addEventListener('click', login);
+        byId('btnRegister')?.addEventListener('click', registerUser);
+        byId('btnLogout')?.addEventListener('click', logout);
+        byId('btnCreate')?.addEventListener('click', createProduct);
+        byId('loginPassword')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
+        byId('regPassword')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') registerUser(); });
+
+        // Auto-login if token exists
+        if (AuthBridge.token) {
+            (async () => {
+                try {
+                    const res = await fetch('/api/me');
+                    if (res.ok) {
+                        const me = await res.json();
+                        roles = me.roles || [];
+                        show('authCard', false);
+                        byId('userText').textContent = `Logged in as ${me.username} [${roles.join(', ')}]`;
+                        show('userInfo', true);
+                        show('adminCreate', roles.includes('ROLE_ADMIN'));
+                        show('adminAudit', roles.includes('ROLE_ADMIN'));
+                        await loadProducts();
+                        if (roles.includes('ROLE_ADMIN')) await loadAudit();
+                    }
+                } catch {}
+            })();
+        }
+    })();
+</script>
+</body>
+</html>

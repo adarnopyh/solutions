@@ -17,7 +17,6 @@ databaseChangeLog:
       id: 006-seed-users
       author: you
       changes:
-        # NOTE: replace the bcrypt hashes with ones you generate for your chosen passwords
         - insert:
             tableName: users
             columns:

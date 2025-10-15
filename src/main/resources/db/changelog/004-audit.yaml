@@ -1,0 +1,52 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-audit
+      author: you
+      changes:
+        - createTable:
+            tableName: product_audit
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: product_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: action
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: old_value
+                  type: CLOB
+              - column:
+                  name: new_value
+                  type: CLOB
+              - column:
+                  name: performed_by
+                  type: VARCHAR(128)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: performed_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+        - createIndex:
+            indexName: idx_product_audit_product_id
+            tableName: product_audit
+            columns:
+              - column:
+                  name: product_id
+        - createIndex:
+            indexName: idx_product_audit_performed_at
+            tableName: product_audit
+            columns:
+              - column:
+                  name: performed_at

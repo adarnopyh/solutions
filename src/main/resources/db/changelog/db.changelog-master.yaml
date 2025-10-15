@@ -5,3 +5,5 @@ databaseChangeLog:
       file: db/changelog/002-seed.yaml
   - include:
       file: db/changelog/003-update-passwords.yaml
+  - include:
+      file: db/changelog/004-audit.yaml
