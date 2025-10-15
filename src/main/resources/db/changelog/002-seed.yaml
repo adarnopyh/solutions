@@ -1,0 +1,77 @@
+databaseChangeLog:
+
+  - changeSet:
+      id: 005-seed-roles
+      author: you
+      changes:
+        - insert:
+            tableName: roles
+            columns:
+              - column: { name: name, value: "ROLE_ADMIN" }
+        - insert:
+            tableName: roles
+            columns:
+              - column: { name: name, value: "ROLE_USER" }
+
+  - changeSet:
+      id: 006-seed-users
+      author: you
+      changes:
+        # NOTE: replace the bcrypt hashes with ones you generate for your chosen passwords
+        - insert:
+            tableName: users
+            columns:
+              - column: { name: username, value: "admin" }
+              - column: { name: password, value: "{bcrypt}$2a$10$REPLACE_WITH_ADMIN_HASH" }
+              - column: { name: enabled, valueBoolean: true }
+        - insert:
+            tableName: users
+            columns:
+              - column: { name: username, value: "user" }
+              - column: { name: password, value: "{bcrypt}$2a$10$REPLACE_WITH_USER_HASH" }
+              - column: { name: enabled, valueBoolean: true }
+
+  - changeSet:
+      id: 007-map-user-roles
+      author: you
+      changes:
+        # Use SQL for INSERT…SELECT so it works across Liquibase versions
+        - sql:
+            dbms: postgresql, h2
+            sql: |
+              INSERT INTO users_roles (user_id, role_id)
+              VALUES (
+                (SELECT id FROM users WHERE username = 'admin'),
+                (SELECT id FROM roles WHERE name = 'ROLE_ADMIN')
+              );
+        - sql:
+            dbms: postgresql, h2
+            sql: |
+              INSERT INTO users_roles (user_id, role_id)
+              VALUES (
+                (SELECT id FROM users WHERE username = 'user'),
+                (SELECT id FROM roles WHERE name = 'ROLE_USER')
+              );
+
+  - changeSet:
+      id: 008-seed-products
+      author: you
+      changes:
+        - insert:
+            tableName: product
+            columns:
+              - column: { name: title, value: "HDD 1TB" }
+              - column: { name: quantity, valueNumeric: 55 }
+              - column: { name: price, valueNumeric: 74.09 }
+        - insert:
+            tableName: product
+            columns:
+              - column: { name: title, value: "HDD SSD 512GB" }
+              - column: { name: quantity, valueNumeric: 102 }
+              - column: { name: price, valueNumeric: 190.99 }
+        - insert:
+            tableName: product
+            columns:
+              - column: { name: title, value: "RAM DDR4 16GB" }
+              - column: { name: quantity, valueNumeric: 47 }
+              - column: { name: price, valueNumeric: 80.32 }

@@ -1,0 +1,53 @@
+# --- Build artifacts ---
+/target/
+out/
+build/
+
+# --- Logs & PIDs ---
+*.log
+spring.log
+*.pid
+
+# --- Environment / local overrides (keep main config tracked) ---
+.env
+.env.*
+application-local.properties
+application-local.yml
+application-local.yaml
+
+# --- Maven wrapper (KEEP the wrapper JAR tracked) ---
+# Do NOT ignore .mvn/wrapper/maven-wrapper.jar
+# (so the project is buildable without Maven preinstalled)
+
+# --- IDE settings ---
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse / STS
+.project
+.classpath
+.settings/
+.apt_generated/
+.springBeans
+.sts4-cache/
+.factorypath
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# VS Code
+.vscode/
+
+# --- OS cruft ---
+.DS_Store
+Thumbs.db
+
+# --- Misc from Spring Initializr ---
+HELP.md
